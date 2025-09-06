@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	req "tcpServer/internal/request"
+	"unicode"
 )
 
 type Headers map[string]string
@@ -12,6 +13,7 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 	strVal := string(data)
 	lineIndex := strings.Index(strVal, req.SEPERATOR)
 
+	// handle incomplete line and done cases
 	if lineIndex == -1 {
 		return 0, false, nil
 	}
@@ -19,13 +21,50 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 		return len(req.SEPERATOR), true, nil
 	}
 
+	// handle header name
 	nameEnd := strings.Index(strVal, ":")
 	name := strings.TrimLeft(strVal[:nameEnd], " ")
-	if strings.Index(name, " ") != -1 {
+	if !isValidFieldName(name) {
 		return 0, false, fmt.Errorf("Malformed request headers %s", strVal)
 	}
-	h[name] = strings.Trim(strVal[nameEnd+1:lineIndex], " ")
+	name = strings.ToLower(name)
+
+	// handle header value
+	val := strings.Trim(strVal[nameEnd+1:lineIndex], " ")
+	if _, ok := h[name]; ok {
+		val = h[name] + ", " + val
+	}
+	h[strings.ToLower(name)] = val
+
 	return lineIndex + len(req.SEPERATOR), false, nil
+}
+
+func (h Headers) Get(name string) string {
+	return h[strings.ToLower(name)]
+}
+
+func isValidFieldName(name string) bool {
+	if len(name) < 1 {
+		return false
+	}
+
+	if strings.Index(name, " ") != -1 {
+		return false
+	}
+
+	for _, ch := range name {
+		switch ch {
+		case '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~':
+			continue
+		default:
+			if unicode.IsDigit(ch) || unicode.IsLetter(ch) {
+				continue
+			}
+			return false
+		}
+	}
+
+	return true
 }
 
 func NewHeaders() Headers {
