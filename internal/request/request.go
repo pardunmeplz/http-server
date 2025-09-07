@@ -4,19 +4,24 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	h "tcpServer/internal/headers"
 	"unicode"
 )
 
 type Request struct {
 	RequestLine RequestLine
-	state       parserState
+	Headers     h.Headers
+	Body        []byte
+	State       parserState
 }
 
 type parserState int
 
 const (
 	INITIALIZED parserState = 0
-	DONE        parserState = 1
+	HEADERS     parserState = 1
+	BODY        parserState = 2
+	DONE        parserState = 3
 )
 
 type RequestLine struct {
@@ -29,37 +34,56 @@ const SEPERATOR = "\r\n"
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	buffer := []byte{}
-	request := Request{RequestLine{}, INITIALIZED}
-	for request.state != DONE {
+	request := Request{RequestLine{}, make(h.Headers), nil, INITIALIZED}
+	totConsumed := 0
+	for request.State != DONE {
 		chunk := make([]byte, 8)
 		size, err := reader.Read(chunk)
 		if err != nil {
 			return nil, err
 		}
 		buffer = append(buffer, chunk[:size]...)
-		consumed, err := request.parse(buffer)
+		consumed, err := request.parse(buffer[totConsumed:])
 		if err != nil {
 			return nil, err
 		}
-		if consumed != 0 {
-			buffer = buffer[:consumed]
-		}
+		totConsumed += consumed
 	}
 
 	return &request, nil
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	line, consumed, error := ParseRequestLine(string(data))
-	if error != nil {
-		return 0, error
+	totConsumed := 0
+	if r.State == INITIALIZED {
+		line, consumed, error := ParseRequestLine(string(data))
+		totConsumed += consumed
+		if error != nil {
+			return totConsumed, error
+		}
+		if line != nil {
+			r.RequestLine = *line
+			r.State = HEADERS
+		}
 	}
-	if consumed == 0 {
-		return 0, nil
+	if r.State == HEADERS {
+		for {
+			consumed, done, error := r.Headers.Parse(data[totConsumed:])
+			totConsumed += consumed
+			if error != nil {
+				return totConsumed, error
+			}
+			if done {
+				r.State = DONE
+				break
+			}
+			if consumed == 0 {
+				break
+			}
+			fmt.Println(consumed)
+		}
 	}
-	r.state = DONE
-	r.RequestLine = *line
-	return consumed, nil
+	return totConsumed, nil
 }
 
 func ParseRequestLine(rawStr string) (*RequestLine, int, error) {
