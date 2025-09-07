@@ -3,6 +3,7 @@ package request
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	h "tcpServer/internal/headers"
 	"unicode"
@@ -34,7 +35,7 @@ const SEPERATOR = "\r\n"
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	buffer := []byte{}
-	request := Request{RequestLine{}, make(h.Headers), nil, INITIALIZED}
+	request := Request{RequestLine{}, make(h.Headers), []byte{}, INITIALIZED}
 	totConsumed := 0
 	for request.State != DONE {
 		chunk := make([]byte, 8)
@@ -52,6 +53,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 	return &request, nil
 }
+
+// TODO: content length greater than actual body size and missing terminator for field-lines is not yet implemented,
+//  the tests just pass because we get an EOF error
 
 func (r *Request) parse(data []byte) (int, error) {
 	totConsumed := 0
@@ -74,13 +78,29 @@ func (r *Request) parse(data []byte) (int, error) {
 				return totConsumed, error
 			}
 			if done {
-				r.State = DONE
+				if r.Headers.Get("content-length") == "" {
+					r.State = DONE
+				} else {
+					r.State = BODY
+				}
 				break
 			}
 			if consumed == 0 {
 				break
 			}
-			fmt.Println(consumed)
+		}
+	}
+	if r.State == BODY {
+		length, err := strconv.Atoi(r.Headers.Get("content-length"))
+		if err != nil {
+			return totConsumed, fmt.Errorf("Invalid content-length %s", r.Headers.Get("content-length"))
+		}
+		totConsumed, r.Body = len(data), append(r.Body, data[totConsumed:]...)
+		if len(r.Body) > length {
+			return len(data), fmt.Errorf("Content length mismatch with body")
+		}
+		if len(r.Body) == length {
+			r.State = DONE
 		}
 	}
 	return totConsumed, nil

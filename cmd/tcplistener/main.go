@@ -35,4 +35,5 @@ func printRequest(request *req.Request) {
 	for key := range request.Headers {
 		fmt.Printf("- %s: %s\n", key, request.Headers.Get(key))
 	}
+	fmt.Printf("Body:\n%s", string(request.Body))
 }
