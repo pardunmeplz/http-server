@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"tcpServer/internal/response"
 )
 
 type Server struct {
@@ -35,11 +36,6 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	response := `HTTP/1.1 200 OK
-Content-Type: text/plain
-Content-Length: 12
-
-Hello World!`
-
-	conn.Write([]byte(response))
+	response.WriteStatusLine(conn, response.OK)
+	response.WriteHeaders(conn, response.GetDefaultHeaders(0))
 }

@@ -47,6 +47,10 @@ func (h Headers) Get(name string) string {
 	return h[strings.ToLower(name)]
 }
 
+func (h Headers) Set(name string, value string) {
+	h[strings.ToLower(name)] = value
+}
+
 func isValidFieldName(name string) bool {
 	if len(name) < 1 {
 		return false
