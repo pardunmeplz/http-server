@@ -1,17 +1,20 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"tcpServer/internal/server"
+	"tcpServer/internal/request"
+	"tcpServer/internal/response"
+	sv "tcpServer/internal/server"
 )
 
 const port = 42069
 
 func main() {
-	server, err := server.Serve(port)
+	server, err := sv.Serve(port, handler)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
@@ -22,4 +25,17 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 	log.Println("Server gracefully stopped")
+}
+
+func handler(w io.Writer, req *request.Request) *sv.HandlerError {
+	switch req.RequestLine.RequestTarget {
+	case "/yourproblem":
+		return &sv.HandlerError{Code: response.BAD_REQUEST, Message: "Your problem is not my problem\n"}
+	case "/myproblem":
+		return &sv.HandlerError{Code: response.INTERNAL_SERVER_ERROR, Message: "Woopsie, my bad\n"}
+	default:
+		w.Write([]byte("All good, frfr\n"))
+	}
+
+	return nil
 }
