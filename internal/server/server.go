@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -11,15 +10,16 @@ import (
 
 type Server struct {
 	listener net.Listener
+	handler  Handler
 }
 
 func Serve(port int, handler Handler) (*Server, error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
-	server := &Server{listener}
-	go server.listen(handler)
+	server := &Server{listener, handler}
+	go server.listen()
 
 	return server, nil
 }
@@ -27,31 +27,26 @@ func Serve(port int, handler Handler) (*Server, error) {
 func (s *Server) Close() error {
 	return s.listener.Close()
 }
-func (s *Server) listen(handler Handler) {
+
+func (s *Server) listen() {
 	for {
 		conn, err := s.listener.Accept()
+		defer conn.Close()
 		if err != nil {
 			log.Fatal(err)
+			continue
 		}
-		s.handle(conn, handler)
+		go s.handle(conn)
 	}
 }
 
-func (s *Server) handle(conn net.Conn, handler Handler) {
+func (s *Server) handle(conn net.Conn) {
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	buffer := bytes.Buffer{}
-	herr := handler(&buffer, req)
-	if herr != nil {
-		herr.writeError(conn)
-	} else {
-		headers := response.GetDefaultHeaders(buffer.Len())
-		response.WriteStatusLine(conn, response.OK)
-		response.WriteHeaders(conn, headers)
-		conn.Write(buffer.Bytes())
-	}
+	writer := response.Writer{Writer: conn}
+	s.handler(writer, req)
 
 }

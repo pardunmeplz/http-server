@@ -7,28 +7,61 @@ import (
 )
 
 type StatusCode string
+type Writer struct {
+	Writer io.Writer
+}
+
+func (w *Writer) WriteStatusLine(code StatusCode) error {
+
+	switch code {
+	case OK:
+		_, err := w.Writer.Write([]byte("HTTP/1.1 200 OK\r\n"))
+		return err
+	case BAD_REQUEST:
+		_, err := w.Writer.Write([]byte("HTTP/1.1 400 BAD REQUEST\r\n"))
+		return err
+	case INTERNAL_SERVER_ERROR:
+		_, err := w.Writer.Write([]byte("HTTP/1.1 500 INTERNAL SERVER ERROR\r\n"))
+		return err
+	}
+	return nil
+
+}
+
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	for key := range headers {
+		_, err := w.Writer.Write([]byte(key))
+		if err != nil {
+			return err
+		}
+		_, err = w.Writer.Write([]byte{':', ' '})
+		if err != nil {
+			return err
+		}
+		_, err = w.Writer.Write([]byte(headers.Get(key)))
+		if err != nil {
+			return err
+		}
+		_, err = w.Writer.Write([]byte{'\r', '\n'})
+		if err != nil {
+			return err
+		}
+
+	}
+	w.Writer.Write([]byte{'\r', '\n'})
+	return nil
+
+}
+
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	return w.Writer.Write(p)
+}
 
 const (
 	OK                    StatusCode = "200"
 	BAD_REQUEST           StatusCode = "400"
 	INTERNAL_SERVER_ERROR StatusCode = "500"
 )
-
-func WriteStatusLine(writer io.Writer, code StatusCode) error {
-
-	switch code {
-	case OK:
-		_, err := writer.Write([]byte("HTTP/1.1 200 OK\r\n"))
-		return err
-	case BAD_REQUEST:
-		_, err := writer.Write([]byte("HTTP/1.1 400 BAD REQUEST\r\n"))
-		return err
-	case INTERNAL_SERVER_ERROR:
-		_, err := writer.Write([]byte("HTTP/1.1 500 INTERNAL SERVER ERROR\r\n"))
-		return err
-	}
-	return nil
-}
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
 	output := make(headers.Headers)
@@ -39,29 +72,4 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 
 	return output
 
-}
-
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-
-	for key := range headers {
-		_, err := w.Write([]byte(key))
-		if err != nil {
-			return err
-		}
-		_, err = w.Write([]byte{':', ' '})
-		if err != nil {
-			return err
-		}
-		_, err = w.Write([]byte(headers.Get(key)))
-		if err != nil {
-			return err
-		}
-		_, err = w.Write([]byte{'\r', '\n'})
-		if err != nil {
-			return err
-		}
-
-	}
-	w.Write([]byte{'\r', '\n'})
-	return nil
 }
