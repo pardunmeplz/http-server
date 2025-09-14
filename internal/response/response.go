@@ -1,6 +1,7 @@
 package response
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 	"tcpServer/internal/headers"
@@ -72,4 +73,17 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 
 	return output
 
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	// write hex num /r/n
+	sizeA, err := w.Writer.Write([]byte(fmt.Sprintf("%x\r\n", len(p))))
+	sizeB, err := w.Writer.Write(p)
+	sizeC, err := w.Writer.Write([]byte{'\r', '\n'})
+	return sizeA + sizeB + sizeC, err
+
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	return w.Writer.Write([]byte{0, '\r', '\n', '\r', '\n'})
 }

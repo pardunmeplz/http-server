@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"tcpServer/internal/request"
 	"tcpServer/internal/response"
@@ -27,10 +31,63 @@ func main() {
 }
 
 func handler(w response.Writer, req *request.Request) {
-	message := ""
-	switch req.RequestLine.RequestTarget {
-	case "/yourproblem":
-		message = `<html>
+	switch {
+	case req.RequestLine.RequestTarget == "/yourproblem":
+		yourProblem(w)
+	case req.RequestLine.RequestTarget == "/myproblem":
+		myProblem(w)
+	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
+		httpBin(w, req)
+	default:
+		defaultResp(w)
+	}
+}
+
+const httpBinLink = "https://httpbin.org"
+
+func httpBin(w response.Writer, req *request.Request) {
+	// route
+	path := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin")
+	w.WriteStatusLine(response.OK)
+
+	// headers
+	headers := response.GetDefaultHeaders(0)
+	delete(headers, "content-length")
+	headers.Set("transfrer-encoding", "chuncked")
+	w.WriteHeaders(headers)
+
+	resp, err := http.Get(httpBinLink + path)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	buffer := make([]byte, 1024)
+	for {
+		size, err := resp.Body.Read(buffer)
+		fmt.Println(size)
+		// if size < 1024 {
+		// 	break
+		// }
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		_, err = w.WriteChunkedBody(buffer)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	}
+	// w.WriteChunkedBodyDone()
+
+}
+
+func yourProblem(w response.Writer) {
+	message := `<html>
   <head>
     <title>400 Bad Request</title>
   </head>
@@ -39,9 +96,15 @@ func handler(w response.Writer, req *request.Request) {
     <p>Your request honestly kinda sucked.</p>
   </body>
 </html>`
-		w.WriteStatusLine(response.BAD_REQUEST)
-	case "/myproblem":
-		message = `<html>
+	w.WriteStatusLine(response.BAD_REQUEST)
+	headers := response.GetDefaultHeaders(len(message))
+	headers.Set("content-type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody([]byte(message))
+}
+
+func myProblem(w response.Writer) {
+	message := `<html>
   <head>
     <title>500 Internal Server Error</title>
   </head>
@@ -50,9 +113,15 @@ func handler(w response.Writer, req *request.Request) {
     <p>Okay, you know what? This one is on me.</p>
   </body>
 </html>`
-		w.WriteStatusLine(response.INTERNAL_SERVER_ERROR)
-	default:
-		message = `<html>
+	w.WriteStatusLine(response.INTERNAL_SERVER_ERROR)
+	headers := response.GetDefaultHeaders(len(message))
+	headers.Set("content-type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody([]byte(message))
+}
+
+func defaultResp(w response.Writer) {
+	message := `<html>
   <head>
     <title>200 OK</title>
   </head>
@@ -61,11 +130,9 @@ func handler(w response.Writer, req *request.Request) {
     <p>Your request was an absolute banger.</p>
   </body>
 </html>`
-		w.WriteStatusLine(response.OK)
-	}
+	w.WriteStatusLine(response.OK)
 	headers := response.GetDefaultHeaders(len(message))
 	headers.Set("content-type", "text/html")
 	w.WriteHeaders(headers)
 	w.WriteBody([]byte(message))
-
 }
