@@ -1,4 +1,4 @@
-package request
+package parser
 
 import (
 	"io"
@@ -36,7 +36,9 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err := RequestFromReader(reader)
+	parser := &Parser{}
+
+	r, err := parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "GET", r.RequestLine.Method)
@@ -48,7 +50,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 1,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "GET", r.RequestLine.Method)
@@ -60,7 +62,7 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 1,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.Error(t, err)
 
 	// Test: Invalid number of parts in request line
@@ -68,17 +70,19 @@ func TestRequestLineParse(t *testing.T) {
 		data:            "gET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 1,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.Error(t, err)
 }
 
-func TestHeaders(t *testing.T) {
+func Headers(t *testing.T) {
 	// Test: Standard Headers
 	reader := &chunkReader{
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err := RequestFromReader(reader)
+	parser := &Parser{}
+
+	r, err := parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "localhost:42069", r.Headers.Get("host"))
@@ -90,7 +94,7 @@ func TestHeaders(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, 0, len(r.Headers))
@@ -100,7 +104,7 @@ func TestHeaders(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.Error(t, err)
 
 	// Test: duplicate Headers and case insensitive check
@@ -108,7 +112,8 @@ func TestHeaders(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nhost: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+
+	r, err = parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "localhost:42069, curl/7.81.0", r.Headers.Get("host"))
@@ -119,11 +124,11 @@ func TestHeaders(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.Error(t, err)
 }
 
-func TestBody(t *testing.T) {
+func Body(t *testing.T) {
 	// Test: Standard Body
 	reader := &chunkReader{
 		data: "POST /submit HTTP/1.1\r\n" +
@@ -133,7 +138,9 @@ func TestBody(t *testing.T) {
 			"hello world!\n",
 		numBytesPerRead: 3,
 	}
-	r, err := RequestFromReader(reader)
+	parser := &Parser{}
+
+	r, err := parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "hello world!\n", string(r.Body))
@@ -145,7 +152,7 @@ func TestBody(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "", string(r.Body))
@@ -158,7 +165,7 @@ func TestBody(t *testing.T) {
 			"\r\n",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "", string(r.Body))
@@ -172,7 +179,7 @@ func TestBody(t *testing.T) {
 			"partial content",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.Error(t, err)
 
 	// Test: missing content length
@@ -183,7 +190,7 @@ func TestBody(t *testing.T) {
 			"partial content",
 		numBytesPerRead: 3,
 	}
-	r, err = RequestFromReader(reader)
+	r, err = parser.ParseFromReader(reader)
 	require.NoError(t, err)
 	assert.Equal(t, "", string(r.Body))
 }

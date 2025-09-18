@@ -1,4 +1,4 @@
-package headers
+package request
 
 import (
 	"fmt"
@@ -7,8 +7,6 @@ import (
 )
 
 type Headers map[string]string
-
-const SEPERATOR = "\r\n"
 
 func (h Headers) Parse(data []byte) (int, bool, error) {
 	strVal := string(data)

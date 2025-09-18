@@ -5,13 +5,12 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	h "tcpServer/internal/headers"
 	"unicode"
 )
 
 type Request struct {
 	RequestLine RequestLine
-	Headers     h.Headers
+	Headers     Headers
 	Body        []byte
 	State       parserState
 }
@@ -35,7 +34,7 @@ const SEPERATOR = "\r\n"
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	buffer := []byte{}
-	request := Request{RequestLine{}, make(h.Headers), []byte{}, INITIALIZED}
+	request := Request{RequestLine{}, make(Headers), []byte{}, INITIALIZED}
 	totConsumed := 0
 	for request.State != DONE {
 		chunk := make([]byte, 8)
