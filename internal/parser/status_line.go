@@ -8,12 +8,12 @@ import (
 	"unicode"
 )
 
-const SUB_SEPERATOR = ' '
+const STATUS_LINE_SEPERATOR = ' '
 
 type ParseVerbState struct{}
 
 func (verbParser *ParseVerbState) parse(data []byte, parser *Parser) (int, error) {
-	sepIndex := bytes.IndexByte(data, SUB_SEPERATOR)
+	sepIndex := bytes.IndexByte(data, STATUS_LINE_SEPERATOR)
 	if bytes.Contains(data, []byte{'\r', '\n'}) && sepIndex == -1 {
 		parser.state = &ErrorState{MALFORMED_REQUEST_LINE_ERR}
 		return 0, fmt.Errorf("ERR_VERB_STATE: %s", MALFORMED_REQUEST_LINE_ERR)
@@ -39,7 +39,7 @@ func (verbParser *ParseVerbState) parse(data []byte, parser *Parser) (int, error
 type ParseTargetState struct{}
 
 func (targetParser *ParseTargetState) parse(data []byte, parser *Parser) (int, error) {
-	sepIndex := bytes.IndexByte(data, SUB_SEPERATOR)
+	sepIndex := bytes.IndexByte(data, STATUS_LINE_SEPERATOR)
 	if bytes.Contains(data, []byte(SEPERATOR)) && sepIndex == -1 {
 		parser.state = &ErrorState{MALFORMED_REQUEST_LINE_ERR}
 		return 0, fmt.Errorf("ERR_TARGET_STATE: %s", MALFORMED_REQUEST_LINE_ERR)
@@ -68,6 +68,6 @@ func (versionParser *ParseVersionState) parse(data []byte, parser *Parser) (int,
 		return 0, fmt.Errorf("ERR_VERSION_STATE: %s", UNEXPECTED_VERSION_ERR)
 	}
 	parser.Request.RequestLine.HttpVersion = version[5:]
-	parser.state = &DoneState{}
+	parser.state = &ParseHeaders{}
 	return len(version) + len(SEPERATOR), nil
 }

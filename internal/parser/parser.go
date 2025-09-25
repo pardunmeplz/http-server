@@ -11,6 +11,7 @@ const (
 	MALFORMED_REQUEST_LINE_ERR = "Malformed request line"
 	UNEXPECTED_VERSION_ERR     = "Unexpected HTTP Version"
 	INVALID_VERB_ERR           = "Invalid HTTP Verb"
+	INVALID_HEADER_NAME        = "Invalid Http field line key"
 )
 
 const SEPERATOR = "\r\n"
