@@ -3,7 +3,9 @@ package parser
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	req "tcpServer/internal/request"
+	"unicode"
 )
 
 const SUB_SEPERATOR = ' '
@@ -22,9 +24,16 @@ func (verbParser *ParseVerbState) parse(data []byte, parser *Parser) (int, error
 	}
 
 	verb := data[:sepIndex]
+
+	for _, b := range verb {
+		if !unicode.IsUpper(rune(b)) {
+			return 0, fmt.Errorf("ERR_VERB_STATE: %s", INVALID_VERB_ERR)
+		}
+	}
+
 	parser.Request.RequestLine = req.RequestLine{HttpVersion: "", RequestTarget: "", Method: string(verb)}
 	parser.state = &ParseTargetState{}
-	return len(verb), nil
+	return len(verb) + 1, nil
 }
 
 type ParseTargetState struct{}
@@ -42,20 +51,23 @@ func (targetParser *ParseTargetState) parse(data []byte, parser *Parser) (int, e
 
 	location := data[:sepIndex]
 	parser.Request.RequestLine.RequestTarget = string(location)
-	parser.state = &ParseVerbState{}
-	return len(location), nil
+	parser.state = &ParseVersionState{}
+	return len(location) + 1, nil
 }
 
 type ParseVersionState struct{}
 
-func (locationParser *ParseVersionState) parse(data []byte, parser *Parser) (int, error) {
+func (versionParser *ParseVersionState) parse(data []byte, parser *Parser) (int, error) {
 	sepIndex := bytes.Index(data, []byte(SEPERATOR))
 	if sepIndex == -1 {
 		return 0, nil
 	}
 
-	version := data[:sepIndex]
-	parser.Request.RequestLine.HttpVersion = string(version)
+	version := string(data[:sepIndex])
+	if !strings.HasPrefix(version, "HTTP/") {
+		return 0, fmt.Errorf("ERR_VERSION_STATE: %s", UNEXPECTED_VERSION_ERR)
+	}
+	parser.Request.RequestLine.HttpVersion = version[5:]
 	parser.state = &DoneState{}
-	return len(version), nil
+	return len(version) + len(SEPERATOR), nil
 }

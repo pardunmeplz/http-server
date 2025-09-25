@@ -3,11 +3,14 @@ package parser
 import (
 	"fmt"
 	"io"
+	"log"
 	req "tcpServer/internal/request"
 )
 
 const (
 	MALFORMED_REQUEST_LINE_ERR = "Malformed request line"
+	UNEXPECTED_VERSION_ERR     = "Unexpected HTTP Version"
+	INVALID_VERB_ERR           = "Invalid HTTP Verb"
 )
 
 const SEPERATOR = "\r\n"
@@ -26,12 +29,15 @@ type Parser struct {
 }
 
 func (p *Parser) parse(data []byte) (int, error) {
-	totConsumed, consumed := 0, 0
-	var err error = nil
-	for consumed, err = p.state.parse(data, p); consumed < 1 && err != nil; consumed, err = p.state.parse(data, p) {
+	totConsumed := 0
+	for consumed, err := p.state.parse(data, p); consumed > 0 || err != nil; consumed, err = p.state.parse(data[totConsumed:], p) {
+		if err != nil {
+			log.Printf("HITERROR")
+			return totConsumed, err
+		}
 		totConsumed += consumed
 	}
-	return totConsumed, err
+	return totConsumed, nil
 }
 
 type ErrorState struct{ message string }
@@ -55,6 +61,7 @@ func (p *Parser) ParseFromReader(reader io.Reader) (*req.Request, error) {
 
 	p.Request = req.Request{}
 	p.state = &ParseVerbState{}
+	p.end = false
 
 	for !p.end {
 		// handle buffer resize if you are running out of space
