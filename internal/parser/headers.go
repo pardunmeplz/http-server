@@ -37,7 +37,7 @@ func (pareHeaders *ParseHeaders) parse(data []byte, parser *Parser) (int, error)
 		parser.state = &ErrorState{INVALID_HEADER_NAME}
 		return 0, fmt.Errorf("ERR_HEADER_STATE %s", INVALID_HEADER_NAME)
 	}
-	parser.Request.Headers.Set(name, string(bytes.Trim(data[nameEnd+1:sepIndex], " ")))
+	parser.Request.Headers.Set(strings.ToLower(name), string(bytes.Trim(data[nameEnd+1:sepIndex], " ")))
 
 	return sepIndex + len(SEPERATOR), nil
 }

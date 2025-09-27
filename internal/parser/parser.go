@@ -76,6 +76,7 @@ func (p *Parser) ParseFromReader(reader io.Reader) (*req.Request, error) {
 		// read into buffer
 		size, err := reader.Read(buffer[bufferIndex:])
 		if err != nil {
+			// commented because we don't know how to deal with incomplete bodies yet
 			// if err == io.EOF {
 			// 	break
 			// }

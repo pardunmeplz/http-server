@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"tcpServer/internal/parser"
 	req "tcpServer/internal/request"
 )
 
@@ -13,13 +14,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	p := parser.Parser{}
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		request, err := req.RequestFromReader(conn)
+		request, err := p.ParseFromReader(conn)
 		if err != nil {
 			log.Fatal(err)
 		}

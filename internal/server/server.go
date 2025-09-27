@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"tcpServer/internal/request"
+	"tcpServer/internal/parser"
 	"tcpServer/internal/response"
 )
 
 type Server struct {
 	listener net.Listener
 	handler  Handler
+	parser   parser.Parser
 }
 
 func Serve(port int, handler Handler) (*Server, error) {
@@ -18,7 +19,7 @@ func Serve(port int, handler Handler) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	server := &Server{listener, handler}
+	server := &Server{listener, handler, parser.Parser{}}
 	go server.listen()
 
 	return server, nil
@@ -41,7 +42,7 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	req, err := request.RequestFromReader(conn)
+	req, err := s.parser.ParseFromReader(conn)
 	if err != nil {
 		log.Fatal(err)
 	}
