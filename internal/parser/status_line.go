@@ -20,6 +20,7 @@ func (verbParser *ParseVerbState) parse(data []byte, parser *Parser) (int, error
 	}
 
 	if sepIndex == -1 {
+		parser.processing = false
 		return 0, nil
 	}
 
@@ -27,6 +28,7 @@ func (verbParser *ParseVerbState) parse(data []byte, parser *Parser) (int, error
 
 	for _, b := range verb {
 		if !unicode.IsUpper(rune(b)) {
+			parser.state = &ErrorState{INVALID_VERB_ERR}
 			return 0, fmt.Errorf("ERR_VERB_STATE: %s", INVALID_VERB_ERR)
 		}
 	}
@@ -46,6 +48,7 @@ func (targetParser *ParseTargetState) parse(data []byte, parser *Parser) (int, e
 	}
 
 	if sepIndex == -1 {
+		parser.processing = false
 		return 0, nil
 	}
 
@@ -60,11 +63,13 @@ type ParseVersionState struct{}
 func (versionParser *ParseVersionState) parse(data []byte, parser *Parser) (int, error) {
 	sepIndex := bytes.Index(data, []byte(SEPERATOR))
 	if sepIndex == -1 {
+		parser.processing = false
 		return 0, nil
 	}
 
 	version := string(data[:sepIndex])
 	if !strings.HasPrefix(version, "HTTP/") {
+		parser.state = &ErrorState{UNEXPECTED_VERSION_ERR}
 		return 0, fmt.Errorf("ERR_VERSION_STATE: %s", UNEXPECTED_VERSION_ERR)
 	}
 	parser.Request.RequestLine.HttpVersion = version[5:]

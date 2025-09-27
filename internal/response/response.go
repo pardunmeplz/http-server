@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"tcpServer/internal/headers"
+	req "tcpServer/internal/request"
 )
 
 type StatusCode string
@@ -29,7 +29,7 @@ func (w *Writer) WriteStatusLine(code StatusCode) error {
 
 }
 
-func (w *Writer) WriteHeaders(headers headers.Headers) error {
+func (w *Writer) WriteHeaders(headers req.Headers) error {
 	for key := range headers {
 		_, err := w.Writer.Write([]byte(key))
 		if err != nil {
@@ -64,8 +64,8 @@ const (
 	INTERNAL_SERVER_ERROR StatusCode = "500"
 )
 
-func GetDefaultHeaders(contentLen int) headers.Headers {
-	output := make(headers.Headers)
+func GetDefaultHeaders(contentLen int) req.Headers {
+	output := make(req.Headers)
 
 	output.Set("content-length", strconv.Itoa(contentLen))
 	output.Set("connection", "close")

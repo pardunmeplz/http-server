@@ -130,7 +130,7 @@ func TestHeaders(t *testing.T) {
 	require.Error(t, err)
 }
 
-func Body(t *testing.T) {
+func TestBody(t *testing.T) {
 	// Test: Standard Body
 	reader := &chunkReader{
 		data: "POST /submit HTTP/1.1\r\n" +
@@ -168,6 +168,7 @@ func Body(t *testing.T) {
 		numBytesPerRead: 3,
 	}
 	r, err = parser.ParseFromReader(reader)
+	log.Println(parser)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "", string(r.Body))
@@ -182,6 +183,8 @@ func Body(t *testing.T) {
 		numBytesPerRead: 3,
 	}
 	r, err = parser.ParseFromReader(reader)
+	log.Println(r)
+	log.Println(parser)
 	require.Error(t, err)
 
 	// Test: missing content length

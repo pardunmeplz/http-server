@@ -16,10 +16,15 @@ func (pareHeaders *ParseHeaders) parse(data []byte, parser *Parser) (int, error)
 
 	sepIndex := bytes.Index(data, []byte(SEPERATOR))
 	if sepIndex == -1 {
+		parser.processing = false
 		return 0, nil
 	}
 	if sepIndex == 0 {
-		parser.state = &DoneState{}
+		if parser.Request.Headers.Get("content-length") == "" {
+			parser.state = &DoneState{}
+		} else {
+			parser.state = &ParseBody{}
+		}
 		return len(SEPERATOR), nil
 	}
 	if parser.Request.Headers == nil {
@@ -29,7 +34,8 @@ func (pareHeaders *ParseHeaders) parse(data []byte, parser *Parser) (int, error)
 	nameEnd := bytes.IndexByte(data, HEADER_SEPERATOR)
 	name := string(bytes.TrimLeft(data[:nameEnd], " "))
 	if !isValidFieldName(name) {
-		return 0, fmt.Errorf("%s", INVALID_HEADER_NAME)
+		parser.state = &ErrorState{INVALID_HEADER_NAME}
+		return 0, fmt.Errorf("ERR_HEADER_STATE %s", INVALID_HEADER_NAME)
 	}
 	parser.Request.Headers.Set(name, string(bytes.Trim(data[nameEnd+1:sepIndex], " ")))
 
