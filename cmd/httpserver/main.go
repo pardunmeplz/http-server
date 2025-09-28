@@ -17,31 +17,39 @@ import (
 const port = 42069
 
 func main() {
-	server, err := sv.Serve(port, handler)
+
+	router := &sv.Router{}
+	router.Register("^/yourproblem$", yourProblem) // equality check
+	router.Register("^/myproblem$", myProblem)     // equality check
+	router.Register("^/httpbin", httpBin)          // prefix check, you can add anything after /httpbin and it will match
+	router.RegisterNotFound(defaultResp)
+
+	server, err := sv.Serve(port, router)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
 	defer server.Close()
 	log.Println("Server started on port", port)
 
+	// code to close the server gracefully
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 	log.Println("Server gracefully stopped")
 }
 
-func handler(w response.Writer, req *request.Request) {
-	switch {
-	case req.RequestLine.RequestTarget == "/yourproblem":
-		yourProblem(w)
-	case req.RequestLine.RequestTarget == "/myproblem":
-		myProblem(w)
-	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
-		httpBin(w, req)
-	default:
-		defaultResp(w)
-	}
-}
+// func handler(w response.Writer, req *request.Request) {
+// 	switch {
+// 	case req.RequestLine.RequestTarget == "/yourproblem":
+// 		yourProblem(w)
+// 	case req.RequestLine.RequestTarget == "/myproblem":
+// 		myProblem(w)
+// 	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
+// 		httpBin(w, req)
+// 	default:
+// 		defaultResp(w)
+// 	}
+// }
 
 const httpBinLink = "https://httpbin.org"
 
@@ -86,7 +94,7 @@ func httpBin(w response.Writer, req *request.Request) {
 
 }
 
-func yourProblem(w response.Writer) {
+func yourProblem(w response.Writer, req *request.Request) {
 	message := `<html>
   <head>
     <title>400 Bad Request</title>
@@ -103,7 +111,7 @@ func yourProblem(w response.Writer) {
 	w.WriteBody([]byte(message))
 }
 
-func myProblem(w response.Writer) {
+func myProblem(w response.Writer, req *request.Request) {
 	message := `<html>
   <head>
     <title>500 Internal Server Error</title>
@@ -120,7 +128,7 @@ func myProblem(w response.Writer) {
 	w.WriteBody([]byte(message))
 }
 
-func defaultResp(w response.Writer) {
+func defaultResp(w response.Writer, req *request.Request) {
 	message := `<html>
   <head>
     <title>200 OK</title>

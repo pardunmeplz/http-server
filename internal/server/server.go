@@ -10,16 +10,16 @@ import (
 
 type Server struct {
 	listener net.Listener
-	handler  Handler
+	router   *Router
 	parser   parser.Parser
 }
 
-func Serve(port int, handler Handler) (*Server, error) {
+func Serve(port int, router *Router) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
-	server := &Server{listener, handler, parser.Parser{}}
+	server := &Server{listener, router, parser.Parser{}}
 	go server.listen()
 
 	return server, nil
@@ -48,6 +48,6 @@ func (s *Server) handle(conn net.Conn) {
 	}
 
 	writer := response.Writer{Writer: conn}
-	s.handler(writer, req)
+	s.router.route(req.RequestLine.RequestTarget)(writer, req)
 
 }

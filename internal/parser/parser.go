@@ -19,6 +19,7 @@ const SEPERATOR = "\r\n"
 const BUFFER_SIZE = 1024
 const BUFFER_GROW_THRESHOLD = 32
 const BUFFER_GROW_INCREMENT = 32
+const BUFFER_LIMIT = 64 * 1024
 
 type parserState interface {
 	parse(data []byte, parser *Parser) (int, error)
@@ -69,7 +70,7 @@ func (p *Parser) ParseFromReader(reader io.Reader) (*req.Request, error) {
 
 	for !p.end {
 		// handle buffer resize if you are running out of space
-		if len(buffer)-bufferIndex < BUFFER_GROW_THRESHOLD {
+		if len(buffer)-bufferIndex < BUFFER_GROW_THRESHOLD && len(buffer)+BUFFER_GROW_INCREMENT < BUFFER_LIMIT {
 			buffer = append(buffer, make([]byte, BUFFER_GROW_INCREMENT)...)
 		}
 
