@@ -25,10 +25,10 @@ func main() {
 	router.RegisterNotFound(defaultResp)
 
 	server, err := sv.Serve(port, router)
+	defer server.Close()
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
-	defer server.Close()
 	log.Println("Server started on port", port)
 
 	// code to close the server gracefully
@@ -37,19 +37,6 @@ func main() {
 	<-sigChan
 	log.Println("Server gracefully stopped")
 }
-
-// func handler(w response.Writer, req *request.Request) {
-// 	switch {
-// 	case req.RequestLine.RequestTarget == "/yourproblem":
-// 		yourProblem(w)
-// 	case req.RequestLine.RequestTarget == "/myproblem":
-// 		myProblem(w)
-// 	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
-// 		httpBin(w, req)
-// 	default:
-// 		defaultResp(w)
-// 	}
-// }
 
 const httpBinLink = "https://httpbin.org"
 
@@ -66,7 +53,7 @@ func httpBin(w response.Writer, req *request.Request) {
 
 	resp, err := http.Get(httpBinLink + path)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 		return
 	}
 	buffer := make([]byte, 1024)
@@ -80,13 +67,13 @@ func httpBin(w response.Writer, req *request.Request) {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			log.Panicln("ERROR: ", err)
 			return
 		}
 
 		_, err = w.WriteChunkedBody(buffer)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("ERROR: ", err)
 			return
 		}
 	}
