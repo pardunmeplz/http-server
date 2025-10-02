@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -48,7 +46,7 @@ func httpBin(w response.Writer, req *request.Request) {
 	// headers
 	headers := response.GetDefaultHeaders(0)
 	delete(headers, "content-length")
-	headers.Set("transfrer-encoding", "chuncked")
+	headers.Set("transfer-encoding", "chunked")
 	w.WriteHeaders(headers)
 
 	resp, err := http.Get(httpBinLink + path)
@@ -56,27 +54,7 @@ func httpBin(w response.Writer, req *request.Request) {
 		log.Panic(err)
 		return
 	}
-	buffer := make([]byte, 1024)
-	for {
-		size, err := resp.Body.Read(buffer)
-		fmt.Println(size)
-		// if size < 1024 {
-		// 	break
-		// }
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Panicln("ERROR: ", err)
-			return
-		}
-
-		_, err = w.WriteChunkedBody(buffer)
-		if err != nil {
-			log.Println("ERROR: ", err)
-			return
-		}
-	}
+	go w.WriteChunkedBody(resp)
 	// w.WriteChunkedBodyDone()
 
 }

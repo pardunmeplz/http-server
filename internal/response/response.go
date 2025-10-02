@@ -3,6 +3,8 @@ package response
 import (
 	"fmt"
 	"io"
+	"log"
+	"net/http"
 	"strconv"
 	req "tcpServer/internal/request"
 )
@@ -75,7 +77,29 @@ func GetDefaultHeaders(contentLen int) req.Headers {
 
 }
 
-func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+func (w *Writer) WriteChunkedBody(resp *http.Response) {
+
+	buffer := make([]byte, 1024)
+	for {
+		size, err := resp.Body.Read(buffer)
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			log.Panicln("ERROR: ", err)
+			return
+		}
+
+		_, err = w.WriteChunk(buffer[:size])
+		if err != nil {
+			log.Println("ERROR: ", err)
+			return
+		}
+	}
+	w.WriteChunkedBodyDone()
+}
+
+func (w *Writer) WriteChunk(p []byte) (int, error) {
 	// write hex num /r/n
 	sizeA, err := w.Writer.Write([]byte(fmt.Sprintf("%x\r\n", len(p))))
 	sizeB, err := w.Writer.Write(p)
@@ -85,5 +109,5 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	return w.Writer.Write([]byte{0, '\r', '\n', '\r', '\n'})
+	return w.Writer.Write([]byte{'0', '\r', '\n', '\r', '\n'})
 }
