@@ -34,7 +34,7 @@ func (s *Server) listen() {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			log.Print(err)
-			writer := response.Writer{Writer: conn}
+			writer := response.Writer{Writer: conn, State: response.STATUS}
 			error := HandlerError{response.INTERNAL_SERVER_ERROR, err.Error()}
 			error.writeError(writer)
 			continue
@@ -44,20 +44,22 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	defer conn.Close()
 	req, err := s.parser.ParseFromReader(conn)
-	writer := response.Writer{Writer: conn}
-	if err != nil {
-		error := HandlerError{response.INTERNAL_SERVER_ERROR, err.Error()}
-		error.writeError(writer)
-		return
-	}
+	writer := response.Writer{Writer: conn, State: response.STATUS}
 	// performing recover check before running handler
 	defer func() {
 		if r := recover(); r != nil {
 			error := HandlerError{response.INTERNAL_SERVER_ERROR, "something went wrong!"}
 			error.writeError(writer)
 		}
+		conn.Close()
 	}()
+
+	if err != nil {
+		error := HandlerError{response.INTERNAL_SERVER_ERROR, err.Error()}
+		error.writeError(writer)
+		return
+	}
+
 	s.router.route(req.RequestLine.RequestTarget)(writer, req)
 }

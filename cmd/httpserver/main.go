@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"tcpServer/internal/request"
@@ -47,15 +48,25 @@ func httpBin(w response.Writer, req *request.Request) {
 	headers := response.GetDefaultHeaders(0)
 	delete(headers, "content-length")
 	headers.Set("transfer-encoding", "chunked")
+	headers.Set("trailer", "X-Content-Length")
 	w.WriteHeaders(headers)
 
 	resp, err := http.Get(httpBinLink + path)
 	if err != nil {
-		log.Panic(err)
+		log.Print(err)
 		return
 	}
-	go w.WriteChunkedBody(resp)
-	// w.WriteChunkedBodyDone()
+
+	size, err := w.WriteChunkedBody(resp)
+	if err != nil {
+		log.Print(err)
+	}
+
+	trailers := make(request.Headers)
+	sizeStr := strconv.Itoa(size)
+	trailers.Set("X-Content-Length", sizeStr)
+
+	w.WriteTrailers(trailers)
 
 }
 
@@ -87,8 +98,10 @@ func myProblem(w response.Writer, req *request.Request) {
   </body>
 </html>`
 	w.WriteStatusLine(response.INTERNAL_SERVER_ERROR)
+
 	headers := response.GetDefaultHeaders(len(message))
 	headers.Set("content-type", "text/html")
+
 	w.WriteHeaders(headers)
 	w.WriteBody([]byte(message))
 }

@@ -3,19 +3,25 @@ package response
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	req "tcpServer/internal/request"
 )
 
 type StatusCode string
+type ResponseState int
+
 type Writer struct {
 	Writer io.Writer
+	State  ResponseState
 }
 
 func (w *Writer) WriteStatusLine(code StatusCode) error {
+	if w.State != STATUS {
+		return fmt.Errorf(INVALID_RESPONSE, "Status line")
+	}
 
+	w.State++
 	switch code {
 	case OK:
 		_, err := w.Writer.Write([]byte("HTTP/1.1 200 OK\r\n"))
@@ -32,6 +38,9 @@ func (w *Writer) WriteStatusLine(code StatusCode) error {
 }
 
 func (w *Writer) WriteHeaders(headers req.Headers) error {
+	if w.State != HEAD {
+		return fmt.Errorf(INVALID_RESPONSE, "Headers")
+	}
 	for key := range headers {
 		_, err := w.Writer.Write([]byte(key))
 		if err != nil {
@@ -52,11 +61,46 @@ func (w *Writer) WriteHeaders(headers req.Headers) error {
 
 	}
 	w.Writer.Write([]byte{'\r', '\n'})
+	w.State++
+	return nil
+
+}
+
+func (w *Writer) WriteTrailers(headers req.Headers) error {
+	if w.State != TRAILER {
+		return fmt.Errorf(INVALID_RESPONSE, "Trailers")
+	}
+
+	for key := range headers {
+		_, err := w.Writer.Write([]byte(key))
+		if err != nil {
+			return err
+		}
+		_, err = w.Writer.Write([]byte{':', ' '})
+		if err != nil {
+			return err
+		}
+		_, err = w.Writer.Write([]byte(headers.Get(key)))
+		if err != nil {
+			return err
+		}
+		_, err = w.Writer.Write([]byte{'\r', '\n'})
+		if err != nil {
+			return err
+		}
+
+	}
+	w.Writer.Write([]byte{'\r', '\n'})
+	w.State++
 	return nil
 
 }
 
 func (w *Writer) WriteBody(p []byte) (int, error) {
+	if w.State != BODY {
+		return 0, fmt.Errorf(INVALID_RESPONSE, "Body")
+	}
+	w.State++
 	return w.Writer.Write(p)
 }
 
@@ -64,6 +108,18 @@ const (
 	OK                    StatusCode = "200"
 	BAD_REQUEST           StatusCode = "400"
 	INTERNAL_SERVER_ERROR StatusCode = "500"
+)
+
+const (
+	STATUS  ResponseState = 1
+	HEAD    ResponseState = 2
+	BODY    ResponseState = 3
+	TRAILER ResponseState = 4
+	DONE    ResponseState = 5
+)
+
+const (
+	INVALID_RESPONSE = "Can not write %s in response"
 )
 
 func GetDefaultHeaders(contentLen int) req.Headers {
@@ -77,26 +133,31 @@ func GetDefaultHeaders(contentLen int) req.Headers {
 
 }
 
-func (w *Writer) WriteChunkedBody(resp *http.Response) {
+func (w *Writer) WriteChunkedBody(resp *http.Response) (int, error) {
+	if w.State != BODY {
+		return 0, fmt.Errorf(INVALID_RESPONSE, "Body")
+	}
 
 	buffer := make([]byte, 1024)
+	consumed := 0
 	for {
 		size, err := resp.Body.Read(buffer)
 
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Panicln("ERROR: ", err)
-			return
+			return consumed, err
 		}
 
 		_, err = w.WriteChunk(buffer[:size])
+		consumed += size
 		if err != nil {
-			log.Println("ERROR: ", err)
-			return
+			return consumed, err
 		}
 	}
 	w.WriteChunkedBodyDone()
+	w.State++
+	return consumed, nil
 }
 
 func (w *Writer) WriteChunk(p []byte) (int, error) {
