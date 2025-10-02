@@ -32,7 +32,6 @@ func (s *Server) Close() error {
 func (s *Server) listen() {
 	for {
 		conn, err := s.listener.Accept()
-		defer conn.Close()
 		if err != nil {
 			log.Print(err)
 			writer := response.Writer{Writer: conn}
@@ -45,6 +44,7 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
+	defer conn.Close()
 	req, err := s.parser.ParseFromReader(conn)
 	writer := response.Writer{Writer: conn}
 	if err != nil {
