@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ func main() {
 	router.Register("^/yourproblem$", yourProblem) // equality check
 	router.Register("^/myproblem$", myProblem)     // equality check
 	router.Register("^/httpbin", httpBin)          // prefix check, you can add anything after /httpbin and it will match
+	router.Register("^/video$", videoStream)
 	router.RegisterNotFound(defaultResp)
 
 	server, err := sv.Serve(port, router)
@@ -121,4 +123,19 @@ func defaultResp(w response.Writer, req *request.Request) {
 	headers.Set("content-type", "text/html")
 	w.WriteHeaders(headers)
 	w.WriteBody([]byte(message))
+}
+
+func videoStream(w response.Writer, req *request.Request) {
+	headers := response.GetDefaultHeaders(0)
+	delete(headers, "content-length")
+	headers.Set("content-type", "video/mp4")
+
+	video, err := os.ReadFile("./assets/vim.mp4")
+	if err != nil {
+		fmt.Println(err)
+	}
+	w.WriteStatusLine(response.OK)
+	w.WriteHeaders(headers)
+	w.WriteBody(video)
+
 }
